@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Down to Three</title>
+<style>
+  :root{
+    --ink:#1c1b19;
+    --paper:#f7f5f1;
+    --card:#ffffff;
+    --line:#e4e0d8;
+    --muted:#8a8579;
+    --accent:#3a6357;
+    --accent-soft:#e4ede9;
+    --amber:#b5762a;
+    --amber-soft:#f5e9d8;
+    --danger:#a3402f;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:var(--paper); color:var(--ink);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  header{
+    padding:18px 16px 10px; position:sticky; top:0; background:var(--paper);
+    z-index:5; border-bottom:1px solid var(--line);
+  }
+  h1{ font-size:19px; margin:0 0 2px; letter-spacing:-0.01em; }
+  .sub{ font-size:12px; color:var(--muted); }
+  nav{
+    display:flex; gap:6px; padding:10px 16px; position:sticky; top:56px;
+    background:var(--paper); z-index:5; border-bottom:1px solid var(--line);
+  }
+  nav button{
+    flex:1; padding:9px 0; border:none; border-radius:9px; font-size:13px;
+    font-weight:600; background:transparent; color:var(--muted); cursor:pointer;
+  }
+  nav button.active{ background:var(--accent); color:#fff; }
+  main{ padding:14px 16px 100px; max-width:560px; margin:0 auto; }
+  .tier{ display:none; }
+  .tier.active{ display:block; }
+  .addrow{ display:flex; gap:8px; margin-bottom:14px; }
+  .addrow input[type=text]{
+    flex:1; padding:11px 12px; border:1px solid var(--line); border-radius:10px;
+    font-size:15px; background:var(--card);
+  }
+  .addrow select{
+    padding:11px 8px; border:1px solid var(--line); border-radius:10px;
+    font-size:13px; background:var(--card); color:var(--muted);
+  }
+  .addrow button{
+    padding:0 16px; border:none; border-radius:10px; background:var(--ink);
+    color:#fff; font-size:14px; font-weight:600;
+  }
+  .group-label{
+    font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+    margin:18px 2px 8px; font-weight:700;
+  }
+  .group-label:first-child{ margin-top:0; }
+  .item{
+    display:flex; align-items:center; gap:10px; background:var(--card);
+    border:1px solid var(--line); border-radius:11px; padding:11px 12px;
+    margin-bottom:8px;
+  }
+  .item.dragging{ opacity:.9; border-color:var(--accent); background:var(--accent-soft); }
+  .drag{
+    flex:none; width:20px; height:28px; display:flex; align-items:center;
+    justify-content:center; color:var(--muted); font-size:16px; cursor:grab;
+    touch-action:none; user-select:none; -webkit-user-select:none;
+  }
+  .item.done{ opacity:.45; }
+  .item.done .item-text{ text-decoration:line-through; }
+  .chk{
+    width:22px; height:22px; border-radius:7px; border:1.5px solid var(--line);
+    flex:none; display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:#fff; cursor:pointer;
+  }
+  .chk.checked{ background:var(--accent); border-color:var(--accent); }
+  .item-text{ flex:1; font-size:15px; line-height:1.3; }
+  .tag{
+    font-size:10px; font-weight:700; padding:3px 7px; border-radius:6px;
+    background:var(--accent-soft); color:var(--accent); white-space:nowrap;
+  }
+  .tag.time{ background:var(--amber-soft); color:var(--amber); }
+  .item-actions{ display:flex; gap:6px; flex:none; }
+  .icon-btn{
+    border:none; background:var(--line); color:var(--ink); width:28px; height:28px;
+    border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;
+    transition: transform .08s ease, filter .08s ease;
+  }
+  .icon-btn:active, .icon-btn.pressed{ transform:scale(.82); filter:brightness(.75); }
+  .icon-btn.promote{ background:var(--accent); color:#fff; }
+  .empty{ color:var(--muted); font-size:14px; padding:24px 4px; text-align:center; }
+  .toolbar{ display:flex; gap:8px; margin-top:20px; }
+  .toolbar button{
+    flex:1; padding:11px 0; border-radius:10px; border:1px solid var(--line);
+    background:var(--card); font-size:13px; font-weight:600; color:var(--ink);
+  }
+  .toolbar button.warn{ color:var(--danger); border-color:#e8d2cc; }
+  #prepOut{
+    margin-top:14px; padding:12px; background:var(--card); border:1px solid var(--line);
+    border-radius:10px; font-size:13px; white-space:pre-wrap; display:none;
+  }
+  .count{ color:var(--muted); font-weight:500; }
+  .status{ font-size:11px; color:var(--muted); text-align:center; padding:8px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Down to Three</h1>
+  <div class="sub">Master &rarr; Weekly &rarr; Daily</div>
+</header>
+
+<nav>
+  <button id="tabMaster" class="active" onclick="showTier('master')">Master</button>
+  <button id="tabWeekly" onclick="showTier('weekly')">Weekly</button>
+  <button id="tabDaily" onclick="showTier('daily')">Daily</button>
+</nav>
+
+<main>
+
+  <div id="tierMaster" class="tier active">
+    <div class="addrow">
+      <input type="text" id="masterInput" placeholder="Add to master list...">
+      <select id="masterFreq">
+        <option value="Ad-hoc">Ad-hoc</option>
+        <option value="Daily">Daily</option>
+        <option value="Weekly">Weekly</option>
+        <option value="Monthly">Monthly</option>
+        <option value="Quarterly">Quarterly</option>
+        <option value="Annual">Annual</option>
+      </select>
+      <button onclick="addMaster()">Add</button>
+    </div>
+    <div id="masterList"></div>
+    <div class="toolbar">
+      <button onclick="copySyncCode()">Copy Sync Code (to push to iPhone)</button>
+    </div>
+  </div>
+
+  <div id="tierWeekly" class="tier">
+    <div class="addrow">
+      <input type="text" id="weeklyInput" placeholder="Add just for this week...">
+      <button onclick="addWeekly()">Add</button>
+    </div>
+    <div id="weeklyList"></div>
+    <div class="toolbar">
+      <button onclick="startNewWeek()">Start new week</button>
+    </div>
+  </div>
+
+  <div id="tierDaily" class="tier">
+    <div class="addrow">
+      <input type="text" id="dailyInput" placeholder="Add just for tomorrow...">
+      <button onclick="addDaily()">Add</button>
+    </div>
+    <div id="dailyList"></div>
+    <div class="toolbar">
+      <button onclick="startNewDay()">Start new day</button>
+      <button onclick="prepForReminders()">Prep for Reminders</button>
+    </div>
+    <div id="prepOut"></div>
+  </div>
+
+  <div class="status" id="statusLine"></div>
+</main>
+
+<script>
+const STORAGE_KEY = 'downtothree:data:v2';
+
+// ---- Mac-is-master sync ----
+// When the app is published for the iPhone, the Mac's full state is baked into
+// MASTER_STATE and MASTER_VERSION is bumped. On load, if this device's saved
+// data is older than MASTER_VERSION, it offers to overwrite with the Mac state.
+// On the Mac's local copy these stay null/0 and have no effect.
+const MASTER_VERSION = 0;
+const MASTER_STATE = null;
+
+let appliedVersion = 0;
+
+const SEED_MASTER = [
+  {text:"Plan Next Day", freq:"Daily", tod:"Morning"},
+  {text:"Finances / Bills", freq:"Daily", tod:"Morning"},
+  {text:"Read", freq:"Daily", tod:"Evening"},
+  {text:"Take Morning Meds", freq:"Daily", tod:"Morning"},
+  {text:"Take Evening Vitamins", freq:"Daily", tod:"Evening"},
+  {text:"Workout / Walk / O.C.", freq:"Daily", tod:"Midday"},
+  {text:"Meditation", freq:"Daily", tod:"Midday"},
+  {text:"BP Check", freq:"Daily", tod:"Midday"},
+  {text:"Rogaine", freq:"Daily", tod:"Morning"},
+  {text:"Retainer", freq:"Daily", tod:"Morning"},
+  {text:"Log lbs", freq:"Daily", tod:"Morning"},
+  {text:"BMO", freq:"Daily", tod:"Midday"},
+  {text:"Laundry", freq:"Daily", tod:"Evening"},
+  {text:"Straighten Up", freq:"Daily", tod:"Evening"},
+  {text:"Grocery Shop", freq:"Daily", tod:"Evening"},
+  {text:"Dinner", freq:"Daily", tod:"Evening"},
+  {text:"Fantasy Teams", freq:"Daily", tod:"Morning"},
+  {text:"Apartment Organized", freq:"Daily", tod:"Evening"},
+  {text:"Divorce", freq:"Daily", tod:"Midday"},
+  {text:"Dry Cleaning", freq:"Weekly"},
+  {text:"Haircut", freq:"Weekly"},
+  {text:"D/Trim", freq:"Weekly"},
+  {text:"Ozempic shot", freq:"Weekly"},
+  {text:"Review goals", freq:"Weekly"},
+  {text:"Meet friends", freq:"Weekly"},
+  {text:"Movies", freq:"Weekly"},
+  {text:"Girls", freq:"Weekly"},
+  {text:"Therapy", freq:"Weekly"},
+  {text:"Irma", freq:"Weekly"},
+  {text:"SS Spend Update", freq:"Weekly"},
+  {text:"Golf", freq:"Weekly"},
+  {text:"Mani/Pedi/Facial", freq:"Monthly"},
+  {text:"Acupuncture", freq:"Monthly"},
+  {text:"Bob", freq:"Monthly"},
+  {text:"Massage", freq:"Monthly"},
+  {text:"Vacation Planning", freq:"Monthly"},
+  {text:"P&L review", freq:"Quarterly"},
+  {text:"Quarterly BS review", freq:"Quarterly"},
+  {text:"Botox+", freq:"Quarterly"},
+  {text:"Resume Update", freq:"Annual"},
+  {text:"Purge", freq:"Annual"},
+  {text:"Pictures from Phone", freq:"Annual"},
+  {text:"Will", freq:"Annual"},
+  {text:"Tax", freq:"Annual"},
+  {text:"Passwords", freq:"Annual"},
+  {text:"Xmas", freq:"Annual"},
+  {text:"Annual budget", freq:"Annual"},
+  {text:"Art / Pictures Shop", freq:"Ad-hoc"},
+  {text:"Tailor (Jacob)", freq:"Ad-hoc"},
+  {text:"Buy Stuff for House", freq:"Ad-hoc"},
+];
+
+const FREQ_ORDER = ["Daily","Weekly","Monthly","Quarterly","Annual","Ad-hoc"];
+
+let data = { master: [], weekly: [], daily: [] };
+let uid = 0;
+function nextId(){ uid += 1; return 'i' + Date.now().toString(36) + uid; }
+
+function seedData(){
+  data.master = SEED_MASTER.map(t => ({
+    id: nextId(), text: t.text, freq: t.freq, tod: t.tod || null
+  }));
+}
+
+function withTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(()=>reject(new Error('timeout')), ms))
+  ]);
+}
+
+// Storage backends, in order of preference:
+// 'artifact' = Claude artifact storage (works inside claude.ai / Claude apps)
+// 'local'    = browser localStorage (works for local files on desktop)
+// 'memory'   = no persistence
+let backend = 'memory';
+
+function detectBackend(){
+  if(window.storage && typeof window.storage.get === 'function') return 'artifact';
+  try{
+    localStorage.setItem('__dt3_test','1');
+    localStorage.removeItem('__dt3_test');
+    return 'local';
+  } catch(e){ return 'memory'; }
+}
+
+function applyParsed(parsed){
+  data = {
+    master: parsed.master || [],
+    weekly: parsed.weekly || [],
+    daily: parsed.daily || []
+  };
+  appliedVersion = parsed.v || 0;
+}
+
+// Decide between this device's saved data and a newer baked-in Mac master.
+function reconcileMaster(parsed){
+  if(!MASTER_STATE || !MASTER_VERSION) return parsed;
+  const pv = parsed ? (parsed.v || 0) : -1;
+  if(pv >= MASTER_VERSION) return parsed;
+  if(!parsed || confirm('A new list was pushed from the Mac. Overwrite this device with it?')){
+    return Object.assign({}, MASTER_STATE, { v: MASTER_VERSION });
+  }
+  return parsed;
+}
+
+function load(){
+  // Render immediately with seed data so the UI is never blank while we wait on storage.
+  seedData();
+  renderAll();
+  setStatus('');
+  backend = detectBackend();
+
+  if(backend === 'local'){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = reconcileMaster(raw ? JSON.parse(raw) : null);
+      if(parsed){ applyParsed(parsed); renderAll(); save(); }
+      else { save(); }
+    } catch(e){
+      backend = 'memory';
+      setStatus('Working offline — changes stay on this device/session only.');
+    }
+    return;
+  }
+
+  if(backend === 'artifact'){
+    // Best-effort background sync — never blocks the initial render.
+    (async () => {
+      try{
+        const result = await withTimeout(window.storage.get(STORAGE_KEY, false), 4000);
+        const parsed = reconcileMaster(result && result.value ? JSON.parse(result.value) : null);
+        if(parsed){
+          applyParsed(parsed);
+          renderAll();
+          await save();
+        } else {
+          await save();
+        }
+      } catch(e){
+        backend = 'memory';
+        setStatus('Working offline — changes stay on this device/session only.');
+      }
+    })();
+    return;
+  }
+
+  setStatus('Working offline — changes stay on this device/session only.');
+}
+
+async function save(){
+  if(backend === 'memory'){ return; }
+  if(backend === 'local'){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.assign({}, data, {v: appliedVersion})));
+      setStatus('');
+    } catch(e){
+      backend = 'memory';
+      setStatus('Working offline — changes stay on this device/session only.');
+    }
+    return;
+  }
+  try{
+    const result = await withTimeout(window.storage.set(STORAGE_KEY, JSON.stringify(Object.assign({}, data, {v: appliedVersion})), false), 4000);
+    if(!result){
+      backend = 'memory';
+      setStatus('Working offline — changes stay on this device/session only.');
+    } else {
+      setStatus('');
+    }
+  } catch(e){
+    backend = 'memory';
+    setStatus('Working offline — changes stay on this device/session only.');
+  }
+}
+
+function setStatus(msg){
+  document.getElementById('statusLine').textContent = msg;
+}
+
+function showTier(name){
+  ['master','weekly','daily'].forEach(t=>{
+    document.getElementById('tier'+cap(t)).classList.toggle('active', t===name);
+    document.getElementById('tab'+cap(t)).classList.toggle('active', t===name);
+  });
+}
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ---------- MASTER ----------
+function addMaster(){
+  const input = document.getElementById('masterInput');
+  const freq = document.getElementById('masterFreq').value;
+  const text = input.value.trim();
+  if(!text) return;
+  data.master.push({ id: nextId(), text, freq, tod: null });
+  input.value = '';
+  save(); renderMaster();
+}
+
+function promoteToWeekly(id, btn){
+  const item = data.master.find(m=>m.id===id);
+  if(!item) return;
+  flashBtn(btn);
+  data.weekly.push({ id: nextId(), text: item.text, sourceFreq: item.freq });
+  save(); renderWeekly();
+  flashTab('tabWeekly');
+}
+
+function removeMaster(id){
+  const item = data.master.find(m=>m.id===id);
+  if(!item) return;
+  if(!confirm(`Remove "${item.text}" from the Master list?`)) return;
+  data.master = data.master.filter(m=>m.id!==id);
+  save(); renderMaster();
+}
+
+function renderMaster(){
+  const el = document.getElementById('masterList');
+  el.innerHTML = '';
+  if(!data.master.length){
+    el.innerHTML = '<div class="empty">Nothing on the master list yet.</div>';
+    return;
+  }
+  FREQ_ORDER.forEach(freq=>{
+    const items = data.master.filter(m=>m.freq===freq);
+    if(!items.length) return;
+    const label = document.createElement('div');
+    label.className = 'group-label';
+    label.textContent = freq;
+    el.appendChild(label);
+    items.forEach(item=>{
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.dataset.id = item.id;
+      row.dataset.group = item.freq;
+      row.innerHTML = `
+        <span class="drag" onpointerdown="startDrag(event,'master')">&#8801;</span>
+        <div class="item-text">${escapeHtml(item.text)}</div>
+        ${item.tod ? `<span class="tag time">${item.tod}</span>` : ''}
+        <div class="item-actions">
+          <button class="icon-btn promote" title="Pull into this week" onclick="promoteToWeekly('${item.id}', this)">W</button>
+          <button class="icon-btn" title="Remove" onclick="removeMaster('${item.id}')">&#10005;</button>
+        </div>`;
+      el.appendChild(row);
+    });
+  });
+}
+
+// ---------- WEEKLY ----------
+function addWeekly(){
+  const input = document.getElementById('weeklyInput');
+  const text = input.value.trim();
+  if(!text) return;
+  data.weekly.push({ id: nextId(), text, sourceFreq: null });
+  input.value = '';
+  save(); renderWeekly();
+}
+
+function promoteToDaily(id, btn){
+  const item = data.weekly.find(w=>w.id===id);
+  if(!item) return;
+  flashBtn(btn);
+  data.daily.push({ id: nextId(), text: item.text, done: false });
+  save(); renderDaily();
+  flashTab('tabDaily');
+}
+
+function removeWeekly(id){
+  data.weekly = data.weekly.filter(w=>w.id!==id);
+  save(); renderWeekly();
+}
+
+function startNewWeek(){
+  if(data.weekly.length && !confirm('Clear the weekly list and start fresh?')) return;
+  data.weekly = [];
+  save(); renderWeekly();
+}
+
+function renderWeekly(){
+  const el = document.getElementById('weeklyList');
+  el.innerHTML = '';
+  if(!data.weekly.length){
+    el.innerHTML = '<div class="empty">Pull items from Master, or add something just for this week.</div>';
+    return;
+  }
+  data.weekly.forEach(item=>{
+    const row = document.createElement('div');
+    row.className = 'item';
+    row.dataset.id = item.id;
+    row.dataset.group = 'all';
+    row.innerHTML = `
+      <span class="drag" onpointerdown="startDrag(event,'weekly')">&#8801;</span>
+      <div class="item-text">${escapeHtml(item.text)}</div>
+      <div class="item-actions">
+        <button class="icon-btn promote" title="Pull into tomorrow" onclick="promoteToDaily('${item.id}', this)">D</button>
+        <button class="icon-btn" title="Remove" onclick="removeWeekly('${item.id}')">&#10005;</button>
+      </div>`;
+    el.appendChild(row);
+  });
+}
+
+// ---------- DAILY ----------
+function addDaily(){
+  const input = document.getElementById('dailyInput');
+  const text = input.value.trim();
+  if(!text) return;
+  data.daily.push({ id: nextId(), text, done: false });
+  input.value = '';
+  save(); renderDaily();
+}
+
+function toggleDaily(id){
+  const item = data.daily.find(d=>d.id===id);
+  if(!item) return;
+  item.done = !item.done;
+  save(); renderDaily();
+}
+
+function removeDaily(id){
+  data.daily = data.daily.filter(d=>d.id!==id);
+  save(); renderDaily();
+}
+
+async function startNewDay(){
+  const unfinished = data.daily.filter(d=>!d.done);
+  if(unfinished.length){
+    const names = unfinished.map(u=>u.text).join(', ');
+    const carry = confirm(`${unfinished.length} unfinished item(s) (${names}). Send them back to Weekly? OK = back to Weekly, Cancel = drop them.`);
+    if(carry){
+      unfinished.forEach(u=> data.weekly.push({ id: nextId(), text: u.text, sourceFreq: null }));
+    }
+  }
+  data.daily = [];
+  await save();
+  renderWeekly(); renderDaily();
+}
+
+function prepForReminders(){
+  const open = data.daily.filter(d=>!d.done);
+  const out = document.getElementById('prepOut');
+  if(!open.length){
+    out.style.display = 'block';
+    out.textContent = 'Nothing open on the daily list.';
+    return;
+  }
+  const text = open.map(o=>'- ' + o.text).join('\n');
+  out.style.display = 'block';
+  out.textContent = text;
+}
+
+function renderDaily(){
+  const el = document.getElementById('dailyList');
+  const openCount = data.daily.filter(d=>!d.done).length;
+  el.innerHTML = '';
+  if(!data.daily.length){
+    el.innerHTML = '<div class="empty">Pull items from this week, or add something just for tomorrow.</div>';
+    return;
+  }
+  data.daily.forEach(item=>{
+    const row = document.createElement('div');
+    row.className = 'item' + (item.done ? ' done':'');
+    row.dataset.id = item.id;
+    row.dataset.group = 'all';
+    row.innerHTML = `
+      <span class="drag" onpointerdown="startDrag(event,'daily')">&#8801;</span>
+      <div class="chk ${item.done?'checked':''}" onclick="toggleDaily('${item.id}')">${item.done?'&#10003;':''}</div>
+      <div class="item-text">${escapeHtml(item.text)}</div>
+      <div class="item-actions">
+        <button class="icon-btn" title="Remove" onclick="removeDaily('${item.id}')">&#10005;</button>
+      </div>`;
+    el.appendChild(row);
+  });
+}
+
+// ---------- SYNC ----------
+function copySyncCode(){
+  const payload = JSON.stringify(data);
+  const doneMsg = 'Sync code copied — paste it to Claude to push to your iPhone.';
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(payload)
+      .then(()=> setStatus(doneMsg))
+      .catch(()=> prompt('Copy this sync code:', payload));
+  } else {
+    prompt('Copy this sync code:', payload);
+  }
+}
+
+// ---------- DRAG TO REORDER ----------
+function startDrag(e, tier){
+  e.preventDefault();
+  const handle = e.currentTarget || e.target;
+  const row = handle.closest('.item');
+  if(!row) return;
+  const container = row.parentNode;
+  const group = row.dataset.group;
+  row.classList.add('dragging');
+  try{ handle.setPointerCapture(e.pointerId); }catch(_){}
+
+  function onMove(ev){
+    const y = ev.clientY;
+    const candidates = [...container.querySelectorAll('.item:not(.dragging)')]
+      .filter(el => el.dataset.group === group);
+    if(!candidates.length) return;
+    let placed = false;
+    for(const c of candidates){
+      const r = c.getBoundingClientRect();
+      if(y < r.top + r.height/2){
+        container.insertBefore(row, c);
+        placed = true;
+        break;
+      }
+    }
+    if(!placed){
+      const last = candidates[candidates.length-1];
+      container.insertBefore(row, last.nextSibling);
+    }
+  }
+
+  function onUp(){
+    row.classList.remove('dragging');
+    handle.removeEventListener('pointermove', onMove);
+    handle.removeEventListener('pointerup', onUp);
+    handle.removeEventListener('pointercancel', onUp);
+    commitOrder(tier, container);
+  }
+
+  handle.addEventListener('pointermove', onMove);
+  handle.addEventListener('pointerup', onUp);
+  handle.addEventListener('pointercancel', onUp);
+}
+
+function commitOrder(tier, container){
+  const ids = [...container.querySelectorAll('.item')].map(el => el.dataset.id);
+  const byId = {};
+  data[tier].forEach(it => byId[it.id] = it);
+  data[tier] = ids.map(id => byId[id]).filter(Boolean);
+  save();
+  if(tier === 'master') renderMaster();
+  else if(tier === 'weekly') renderWeekly();
+  else renderDaily();
+}
+
+function flashBtn(btn){
+  if(!btn) return;
+  btn.classList.add('pressed');
+  setTimeout(()=> btn.classList.remove('pressed'), 180);
+}
+
+function flashTab(id){
+  const el = document.getElementById(id);
+  el.style.transition = 'none';
+  el.style.background = 'var(--accent)';
+  el.style.color = '#fff';
+  setTimeout(()=>{
+    el.style.transition = 'background .4s, color .4s';
+    if(!el.classList.contains('active')){
+      el.style.background = '';
+      el.style.color = '';
+    }
+  }, 250);
+}
+
+function renderAll(){ renderMaster(); renderWeekly(); renderDaily(); }
+
+document.getElementById('masterInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addMaster(); });
+document.getElementById('weeklyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addWeekly(); });
+document.getElementById('dailyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addDaily(); });
+
+load();
+</script>
+</body>
+</html>
