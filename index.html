@@ -374,6 +374,15 @@ function showTier(name){
     document.getElementById('tier'+cap(t)).classList.toggle('active', t===name);
     document.getElementById('tab'+cap(t)).classList.toggle('active', t===name);
   });
+  try{ localStorage.setItem('downtothree:tab', name); }catch(_){}
+}
+
+// Reopen on the tab you were last using (e.g. Daily).
+function restoreTab(){
+  try{
+    const t = localStorage.getItem('downtothree:tab');
+    if(t === 'weekly' || t === 'daily') showTier(t);
+  }catch(_){}
 }
 function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
 
@@ -684,6 +693,7 @@ document.getElementById('weeklyInput').addEventListener('keydown', e=>{ if(e.key
 document.getElementById('dailyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addDaily(); });
 
 load();
+restoreTab();
 </script>
 </body>
 </html>
