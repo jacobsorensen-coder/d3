@@ -542,23 +542,18 @@ function sendToReminders(){
   }
   const text = open.map(o=>o.text).join('\n');
   out.textContent = text;
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  const finish = ()=>{
-    if(isIOS){
-      setStatus('Copied — launching the Reminders shortcut…');
-      setTimeout(()=>{
-        window.location.href = 'shortcuts://run-shortcut?name=' +
-          encodeURIComponent('Daily to Reminders');
-      }, 300);
-    } else {
-      setStatus('Copied ' + open.length + ' item(s) to the clipboard.');
-    }
-  };
+  // Best-effort clipboard copy (not required — items are passed in the URL).
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(finish)
-      .catch(()=> setStatus('Copy failed — select and copy the list below.'));
+    navigator.clipboard.writeText(text).catch(()=>{});
+  }
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  if(isIOS){
+    setStatus('Sending ' + open.length + ' item(s) to the Reminders shortcut…');
+    window.location.href = 'shortcuts://run-shortcut?name=' +
+      encodeURIComponent('Daily to Reminders') +
+      '&input=text&text=' + encodeURIComponent(text);
   } else {
-    setStatus('Clipboard unavailable — select and copy the list below.');
+    setStatus('Copied ' + open.length + ' item(s) to the clipboard.');
   }
 }
 
