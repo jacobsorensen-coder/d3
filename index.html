@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon.png">
 <title>Down to Three</title>
 <style>
   :root{
@@ -66,12 +67,15 @@
     display:flex; align-items:center; gap:10px; background:var(--card);
     border:1px solid var(--line); border-radius:11px; padding:11px 12px;
     margin-bottom:8px;
+    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
   }
   .item.dragging{ opacity:.9; border-color:var(--accent); background:var(--accent-soft); }
   .drag{
-    flex:none; width:20px; height:28px; display:flex; align-items:center;
-    justify-content:center; color:var(--muted); font-size:16px; cursor:grab;
+    flex:none; width:30px; height:36px; margin:-4px 0 -4px -6px;
+    display:flex; align-items:center;
+    justify-content:center; color:var(--muted); font-size:17px; cursor:grab;
     touch-action:none; user-select:none; -webkit-user-select:none;
+    -webkit-touch-callout:none;
   }
   .item.done{ opacity:.45; }
   .item.done .item-text{ text-decoration:line-through; }
@@ -163,7 +167,7 @@
     <div id="dailyList"></div>
     <div class="toolbar">
       <button onclick="startNewDay()">Start new day</button>
-      <button onclick="prepForReminders()">Prep for Reminders</button>
+      <button onclick="sendToReminders()">Send to Reminders</button>
     </div>
     <div id="prepOut"></div>
   </div>
@@ -528,17 +532,34 @@ async function startNewDay(){
   renderWeekly(); renderDaily();
 }
 
-function prepForReminders(){
+function sendToReminders(){
   const open = data.daily.filter(d=>!d.done);
   const out = document.getElementById('prepOut');
+  out.style.display = 'block';
   if(!open.length){
-    out.style.display = 'block';
     out.textContent = 'Nothing open on the daily list.';
     return;
   }
-  const text = open.map(o=>'- ' + o.text).join('\n');
-  out.style.display = 'block';
+  const text = open.map(o=>o.text).join('\n');
   out.textContent = text;
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const finish = ()=>{
+    if(isIOS){
+      setStatus('Copied — launching the Reminders shortcut…');
+      setTimeout(()=>{
+        window.location.href = 'shortcuts://run-shortcut?name=' +
+          encodeURIComponent('Daily to Reminders');
+      }, 300);
+    } else {
+      setStatus('Copied ' + open.length + ' item(s) to the clipboard.');
+    }
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(finish)
+      .catch(()=> setStatus('Copy failed — select and copy the list below.'));
+  } else {
+    setStatus('Clipboard unavailable — select and copy the list below.');
+  }
 }
 
 function renderDaily(){
@@ -586,10 +607,16 @@ function startDrag(e, tier){
   if(!row) return;
   const container = row.parentNode;
   const group = row.dataset.group;
+  const pid = e.pointerId;
   row.classList.add('dragging');
-  try{ handle.setPointerCapture(e.pointerId); }catch(_){}
+  try{ handle.setPointerCapture(pid); }catch(_){}
+
+  // iOS: block page scrolling while a drag is active.
+  const blockTouch = ev => ev.preventDefault();
+  document.addEventListener('touchmove', blockTouch, {passive:false});
 
   function onMove(ev){
+    if(pid !== undefined && ev.pointerId !== undefined && ev.pointerId !== pid) return;
     const y = ev.clientY;
     const candidates = [...container.querySelectorAll('.item:not(.dragging)')]
       .filter(el => el.dataset.group === group);
@@ -609,17 +636,19 @@ function startDrag(e, tier){
     }
   }
 
-  function onUp(){
+  function onUp(ev){
+    if(pid !== undefined && ev.pointerId !== undefined && ev.pointerId !== pid) return;
     row.classList.remove('dragging');
-    handle.removeEventListener('pointermove', onMove);
-    handle.removeEventListener('pointerup', onUp);
-    handle.removeEventListener('pointercancel', onUp);
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    document.removeEventListener('touchmove', blockTouch);
     commitOrder(tier, container);
   }
 
-  handle.addEventListener('pointermove', onMove);
-  handle.addEventListener('pointerup', onUp);
-  handle.addEventListener('pointercancel', onUp);
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
 }
 
 function commitOrder(tier, container){
