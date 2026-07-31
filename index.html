@@ -38,8 +38,9 @@
     background:var(--paper); z-index:5; border-bottom:1px solid var(--line);
   }
   nav button{
-    flex:1; padding:9px 0; border:none; border-radius:9px; font-size:13px;
+    flex:1; padding:9px 2px; border:none; border-radius:9px; font-size:12px;
     font-weight:600; background:transparent; color:var(--muted); cursor:pointer;
+    white-space:nowrap;
   }
   nav button.active{ background:var(--accent); color:#fff; }
   main{ padding:14px 16px 100px; max-width:560px; margin:0 auto; }
@@ -91,11 +92,16 @@
     background:var(--accent-soft); color:var(--accent); white-space:nowrap;
   }
   .tag.time{ background:var(--amber-soft); color:var(--amber); }
+  .tag.carried{ background:#f3e3df; color:var(--danger); }
   .item-actions{ display:flex; gap:6px; flex:none; }
   .icon-btn{
     border:none; background:var(--line); color:var(--ink); width:28px; height:28px;
     border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;
     transition: transform .08s ease, filter .08s ease;
+  }
+  .icon-btn.wide{ width:auto; padding:0 8px; font-size:11px; letter-spacing:.02em; }
+  .daysub{
+    font-size:12px; color:var(--muted); margin:-4px 2px 12px;
   }
   .icon-btn:active, .icon-btn.pressed{ transform:scale(.82); filter:brightness(.75); }
   .icon-btn.promote{ background:var(--accent); color:#fff; }
@@ -118,13 +124,14 @@
 
 <header>
   <h1>Down to Three</h1>
-  <div class="sub">Master &rarr; Weekly &rarr; Daily</div>
+  <div class="sub">Master &rarr; Weekly &rarr; Day</div>
 </header>
 
 <nav>
   <button id="tabMaster" class="active" onclick="showTier('master')">Master</button>
   <button id="tabWeekly" onclick="showTier('weekly')">Weekly</button>
-  <button id="tabDaily" onclick="showTier('daily')">Daily</button>
+  <button id="tabToday" onclick="showTier('today')">Today</button>
+  <button id="tabTomorrow" onclick="showTier('tomorrow')">Tomorrow</button>
 </nav>
 
 <main>
@@ -159,17 +166,31 @@
     </div>
   </div>
 
-  <div id="tierDaily" class="tier">
+  <div id="tierToday" class="tier">
     <div class="addrow">
-      <input type="text" id="dailyInput" placeholder="Add just for tomorrow...">
-      <button onclick="addDaily()">Add</button>
+      <input type="text" id="todayInput" placeholder="Add to today...">
+      <button onclick="addDay('today')">Add</button>
     </div>
-    <div id="dailyList"></div>
+    <div class="daysub" id="todayDate"></div>
+    <div id="todayList"></div>
     <div class="toolbar">
-      <button onclick="startNewDay()">Start new day</button>
       <button onclick="sendToReminders()">Send to Reminders</button>
+      <button onclick="sendUnfinishedToWeekly()">Unfinished &rarr; Weekly</button>
     </div>
     <div id="prepOut"></div>
+  </div>
+
+  <div id="tierTomorrow" class="tier">
+    <div class="addrow">
+      <input type="text" id="tomorrowInput" placeholder="Add to tomorrow...">
+      <button onclick="addDay('tomorrow')">Add</button>
+    </div>
+    <div class="daysub" id="tomorrowDate"></div>
+    <div id="tomorrowList"></div>
+    <div class="toolbar">
+      <button onclick="clearTomorrow()">Clear tomorrow</button>
+      <button onclick="rollNow()">Make tomorrow today now</button>
+    </div>
   </div>
 
   <div class="status" id="statusLine"></div>
@@ -183,8 +204,8 @@ const STORAGE_KEY = 'downtothree:data:v2';
 // MASTER_STATE and MASTER_VERSION is bumped. On load, if this device's saved
 // data is older than MASTER_VERSION, it offers to overwrite with the Mac state.
 // On the Mac's local copy these stay null/0 and have no effect.
-const MASTER_VERSION = 1;
-const MASTER_STATE = {"master": [{"id": "ims0uw7mf1", "text": "Plan Next Day", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf2", "text": "Finances / Bills", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf3", "text": "Read", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf4", "text": "Take Morning Meds", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf5", "text": "Take Evening Vitamins", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf6", "text": "Workout / Walk / O.C.", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf7", "text": "Meditation", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf8", "text": "BP Check", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf9", "text": "Rogaine", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf10", "text": "Retainer", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf11", "text": "Log lbs", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf12", "text": "BMO", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf13", "text": "Laundry", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf14", "text": "Straighten Up", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf15", "text": "Grocery Shop", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf16", "text": "Dinner", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf17", "text": "Fantasy Teams", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf18", "text": "Apartment Organized", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf19", "text": "Divorce", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf20", "text": "Dry Cleaning", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf21", "text": "Haircut", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf22", "text": "D/Trim", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf23", "text": "Ozempic shot", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf24", "text": "Review goals", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf25", "text": "Meet friends", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf26", "text": "Movies", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf27", "text": "Girls", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf28", "text": "Therapy", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf29", "text": "Irma", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf30", "text": "SS Spend Update", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf31", "text": "Golf", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf32", "text": "Mani/Pedi/Facial", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mf33", "text": "Acupuncture", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mg34", "text": "Bob", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mg35", "text": "Massage", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mg36", "text": "Vacation Planning", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mg37", "text": "P&L review", "freq": "Quarterly", "tod": null}, {"id": "ims0uw7mg38", "text": "Quarterly BS review", "freq": "Quarterly", "tod": null}, {"id": "ims0uw7mg39", "text": "Botox+", "freq": "Quarterly", "tod": null}, {"id": "ims0uw7mg40", "text": "Resume Update", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg41", "text": "Purge", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg42", "text": "Pictures from Phone", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg43", "text": "Will", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg44", "text": "Tax", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg45", "text": "Passwords", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg46", "text": "Xmas", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg47", "text": "Annual budget", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg48", "text": "Art / Pictures Shop", "freq": "Ad-hoc", "tod": null}, {"id": "ims0uw7mg49", "text": "Tailor (Jacob)", "freq": "Ad-hoc", "tod": null}, {"id": "ims0uw7mg50", "text": "Buy Stuff for House", "freq": "Ad-hoc", "tod": null}, {"id": "ims13bkrj59", "text": "Pilates", "freq": "Ad-hoc", "tod": null}], "weekly": [{"id": "ims0uwag351", "text": "Plan Next Day", "sourceFreq": "Daily"}, {"id": "ims0uwfqa52", "text": "Finances / Bills", "sourceFreq": "Daily"}, {"id": "ims0uwh7553", "text": "Take Morning Meds", "sourceFreq": "Daily"}, {"id": "ims0uwhsg54", "text": "Take Evening Vitamins", "sourceFreq": "Daily"}, {"id": "ims0uwmj955", "text": "Rogaine", "sourceFreq": "Daily"}, {"id": "ims0uwnr856", "text": "Retainer", "sourceFreq": "Daily"}, {"id": "ims0uwp7j57", "text": "BMO", "sourceFreq": "Daily"}, {"id": "ims0uwrnh58", "text": "Fantasy Teams", "sourceFreq": "Daily"}, {"id": "ims0uwt8059", "text": "Divorce", "sourceFreq": "Daily"}, {"id": "ims0uwwi260", "text": "D/Trim", "sourceFreq": "Weekly"}, {"id": "ims0ux1om61", "text": "Girls", "sourceFreq": "Weekly"}, {"id": "ims0ux6sw62", "text": "SS Spend Update", "sourceFreq": "Weekly"}], "daily": [{"id": "ims0v1rtm51", "text": "Plan Next Day", "done": false}, {"id": "ims0v1t6p52", "text": "Finances / Bills", "done": false}, {"id": "ims0v1u8o53", "text": "Take Morning Meds", "done": false}, {"id": "ims0v1v1d54", "text": "Take Evening Vitamins", "done": false}, {"id": "ims0v1vwe55", "text": "Rogaine", "done": false}, {"id": "ims0v1xcq56", "text": "BMO", "done": false}, {"id": "ims0v1yqq57", "text": "Fantasy Teams", "done": false}, {"id": "ims0v1ziy58", "text": "Divorce", "done": false}]};
+const MASTER_VERSION = 2;
+const MASTER_STATE = {"master": [{"id": "ims0uw7mf1", "text": "Plan Next Day", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf2", "text": "Finances / Bills", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf3", "text": "Read", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf4", "text": "Take Morning Meds", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf5", "text": "Take Evening Vitamins", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf6", "text": "Workout / Walk / O.C.", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf7", "text": "Meditation", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf8", "text": "BP Check", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf9", "text": "Rogaine", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf10", "text": "Retainer", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf11", "text": "Log lbs", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf12", "text": "BMO", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf13", "text": "Laundry", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf14", "text": "Straighten Up", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf15", "text": "Grocery Shop", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf16", "text": "Dinner", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf17", "text": "Fantasy Teams", "freq": "Daily", "tod": "Morning"}, {"id": "ims0uw7mf18", "text": "Apartment Organized", "freq": "Daily", "tod": "Evening"}, {"id": "ims0uw7mf19", "text": "Divorce", "freq": "Daily", "tod": "Midday"}, {"id": "ims0uw7mf20", "text": "Dry Cleaning", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf21", "text": "Haircut", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf22", "text": "D/Trim", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf23", "text": "Ozempic shot", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf24", "text": "Review goals", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf25", "text": "Meet friends", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf26", "text": "Movies", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf27", "text": "Girls", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf28", "text": "Therapy", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf29", "text": "Irma", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf30", "text": "SS Spend Update", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf31", "text": "Golf", "freq": "Weekly", "tod": null}, {"id": "ims0uw7mf32", "text": "Mani/Pedi/Facial", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mf33", "text": "Acupuncture", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mg34", "text": "Bob", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mg35", "text": "Massage", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mg36", "text": "Vacation Planning", "freq": "Monthly", "tod": null}, {"id": "ims0uw7mg37", "text": "P&L review", "freq": "Quarterly", "tod": null}, {"id": "ims0uw7mg38", "text": "Quarterly BS review", "freq": "Quarterly", "tod": null}, {"id": "ims0uw7mg39", "text": "Botox+", "freq": "Quarterly", "tod": null}, {"id": "ims0uw7mg40", "text": "Resume Update", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg41", "text": "Purge", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg42", "text": "Pictures from Phone", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg43", "text": "Will", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg44", "text": "Tax", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg45", "text": "Passwords", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg46", "text": "Xmas", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg47", "text": "Annual budget", "freq": "Annual", "tod": null}, {"id": "ims0uw7mg48", "text": "Art / Pictures Shop", "freq": "Ad-hoc", "tod": null}, {"id": "ims0uw7mg49", "text": "Tailor (Jacob)", "freq": "Ad-hoc", "tod": null}, {"id": "ims0uw7mg50", "text": "Buy Stuff for House", "freq": "Ad-hoc", "tod": null}, {"id": "ims13bkrj59", "text": "Pilates", "freq": "Ad-hoc", "tod": null}], "weekly": [{"id": "ims0uwag351", "text": "Plan Next Day", "sourceFreq": "Daily"}, {"id": "ims0uwfqa52", "text": "Finances / Bills", "sourceFreq": "Daily"}, {"id": "ims0uwh7553", "text": "Take Morning Meds", "sourceFreq": "Daily"}, {"id": "ims0uwhsg54", "text": "Take Evening Vitamins", "sourceFreq": "Daily"}, {"id": "ims0uwmj955", "text": "Rogaine", "sourceFreq": "Daily"}, {"id": "ims0uwnr856", "text": "Retainer", "sourceFreq": "Daily"}, {"id": "ims0uwp7j57", "text": "BMO", "sourceFreq": "Daily"}, {"id": "ims0uwrnh58", "text": "Fantasy Teams", "sourceFreq": "Daily"}, {"id": "ims0uwt8059", "text": "Divorce", "sourceFreq": "Daily"}, {"id": "ims0uwwi260", "text": "D/Trim", "sourceFreq": "Weekly"}, {"id": "ims0ux1om61", "text": "Girls", "sourceFreq": "Weekly"}, {"id": "ims0ux6sw62", "text": "SS Spend Update", "sourceFreq": "Weekly"}], "today": [{"id": "ims0v1rtm51", "text": "Plan Next Day", "done": false}, {"id": "ims0v1t6p52", "text": "Finances / Bills", "done": false}, {"id": "ims0v1u8o53", "text": "Take Morning Meds", "done": false}, {"id": "ims0v1v1d54", "text": "Take Evening Vitamins", "done": false}, {"id": "ims0v1vwe55", "text": "Rogaine", "done": false}, {"id": "ims0v1xcq56", "text": "BMO", "done": false}, {"id": "ims0v1yqq57", "text": "Fantasy Teams", "done": false}, {"id": "ims0v1ziy58", "text": "Divorce", "done": false}], "tomorrow": []};
 
 let appliedVersion = 0;
 
@@ -243,7 +264,7 @@ const SEED_MASTER = [
 
 const FREQ_ORDER = ["Daily","Weekly","Monthly","Quarterly","Annual","Ad-hoc"];
 
-let data = { master: [], weekly: [], daily: [] };
+let data = { master: [], weekly: [], today: [], tomorrow: [], dayStamp: null };
 let uid = 0;
 function nextId(){ uid += 1; return 'i' + Date.now().toString(36) + uid; }
 
@@ -251,6 +272,7 @@ function seedData(){
   data.master = SEED_MASTER.map(t => ({
     id: nextId(), text: t.text, freq: t.freq, tod: t.tod || null
   }));
+  data.dayStamp = todayStamp();
 }
 
 function withTimeout(promise, ms){
@@ -275,13 +297,28 @@ function detectBackend(){
   } catch(e){ return 'memory'; }
 }
 
+// Older saves had a single `daily` list. Fold it into Today.
+function migrate(parsed){
+  if(!parsed) return parsed;
+  if(Array.isArray(parsed.daily) && !parsed.today && !parsed.tomorrow){
+    parsed.today = parsed.daily;
+    parsed.tomorrow = [];
+  }
+  delete parsed.daily;
+  return parsed;
+}
+
 function applyParsed(parsed){
+  parsed = migrate(parsed);
   data = {
     master: parsed.master || [],
     weekly: parsed.weekly || [],
-    daily: parsed.daily || []
+    today: parsed.today || [],
+    tomorrow: parsed.tomorrow || [],
+    dayStamp: parsed.dayStamp || todayStamp()
   };
   appliedVersion = parsed.v || 0;
+  rollOver();
 }
 
 // Decide between this device's saved data and a newer baked-in Mac master.
@@ -370,7 +407,7 @@ function setStatus(msg){
 }
 
 function showTier(name){
-  ['master','weekly','daily'].forEach(t=>{
+  ['master','weekly','today','tomorrow'].forEach(t=>{
     document.getElementById('tier'+cap(t)).classList.toggle('active', t===name);
     document.getElementById('tab'+cap(t)).classList.toggle('active', t===name);
   });
@@ -380,8 +417,9 @@ function showTier(name){
 // Reopen on the tab you were last using (e.g. Daily).
 function restoreTab(){
   try{
-    const t = localStorage.getItem('downtothree:tab');
-    if(t === 'weekly' || t === 'daily') showTier(t);
+    let t = localStorage.getItem('downtothree:tab');
+    if(t === 'daily') t = 'today'; // legacy value
+    if(t === 'weekly' || t === 'today' || t === 'tomorrow') showTier(t);
   }catch(_){}
 }
 function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
@@ -462,13 +500,13 @@ function addWeekly(){
   save(); renderWeekly();
 }
 
-function promoteToDaily(id, btn){
+function promoteToDay(id, which, btn){
   const item = data.weekly.find(w=>w.id===id);
   if(!item) return;
   flashBtn(btn);
-  data.daily.push({ id: nextId(), text: item.text, done: false });
-  save(); renderDaily();
-  flashTab('tabDaily');
+  data[which].push({ id: nextId(), text: item.text, done: false });
+  save(); renderDay(which);
+  flashTab(which === 'today' ? 'tabToday' : 'tabTomorrow');
 }
 
 function removeWeekly(id){
@@ -498,51 +536,97 @@ function renderWeekly(){
       <span class="drag" onpointerdown="startDrag(event,'weekly')">&#8801;</span>
       <div class="item-text">${escapeHtml(item.text)}</div>
       <div class="item-actions">
-        <button class="icon-btn promote" title="Pull into tomorrow" onclick="promoteToDaily('${item.id}', this)">D</button>
+        <button class="icon-btn wide" title="Pull into today" onclick="promoteToDay('${item.id}','today', this)">Tdy</button>
+        <button class="icon-btn wide promote" title="Pull into tomorrow" onclick="promoteToDay('${item.id}','tomorrow', this)">Tmw</button>
         <button class="icon-btn" title="Remove" onclick="removeWeekly('${item.id}')">&#10005;</button>
       </div>`;
     el.appendChild(row);
   });
 }
 
-// ---------- DAILY ----------
-function addDaily(){
-  const input = document.getElementById('dailyInput');
+// ---------- DAILY (Today / Tomorrow) ----------
+
+// Local calendar date as YYYY-MM-DD.
+function todayStamp(d){
+  return (d || new Date()).toLocaleDateString('en-CA');
+}
+
+function stampLabel(offsetDays){
+  const d = new Date();
+  d.setDate(d.getDate() + (offsetDays || 0));
+  return d.toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
+}
+
+// When the calendar day changes, Tomorrow becomes Today. Anything left
+// unfinished on the old Today carries over, tagged so it stands out.
+function rollOver(force){
+  const stamp = todayStamp();
+  if(!force && data.dayStamp === stamp) return false;
+  const carried = data.today.filter(d=>!d.done)
+    .map(d => Object.assign({}, d, {carried:true}));
+  data.today = data.tomorrow.map(d => Object.assign({}, d, {done:false}))
+    .concat(carried);
+  data.tomorrow = [];
+  data.dayStamp = stamp;
+  return true;
+}
+
+function rollNow(){
+  if(!confirm('Move Tomorrow into Today now? Unfinished items from Today carry over.')) return;
+  rollOver(true);
+  save(); renderAll(); showTier('today');
+}
+
+function addDay(which){
+  const input = document.getElementById(which + 'Input');
   const text = input.value.trim();
   if(!text) return;
-  data.daily.push({ id: nextId(), text, done: false });
+  data[which].push({ id: nextId(), text, done: false });
   input.value = '';
-  save(); renderDaily();
+  save(); renderDay(which);
 }
 
-function toggleDaily(id){
-  const item = data.daily.find(d=>d.id===id);
+function toggleDay(which, id){
+  const item = data[which].find(d=>d.id===id);
   if(!item) return;
   item.done = !item.done;
-  save(); renderDaily();
+  save(); renderDay(which);
 }
 
-function removeDaily(id){
-  data.daily = data.daily.filter(d=>d.id!==id);
-  save(); renderDaily();
+function removeDay(which, id){
+  data[which] = data[which].filter(d=>d.id!==id);
+  save(); renderDay(which);
 }
 
-async function startNewDay(){
-  const unfinished = data.daily.filter(d=>!d.done);
-  if(unfinished.length){
-    const names = unfinished.map(u=>u.text).join(', ');
-    const carry = confirm(`${unfinished.length} unfinished item(s) (${names}). Send them back to Weekly? OK = back to Weekly, Cancel = drop them.`);
-    if(carry){
-      unfinished.forEach(u=> data.weekly.push({ id: nextId(), text: u.text, sourceFreq: null }));
-    }
-  }
-  data.daily = [];
-  await save();
-  renderWeekly(); renderDaily();
+function moveToToday(id, btn){
+  const i = data.tomorrow.findIndex(d=>d.id===id);
+  if(i < 0) return;
+  flashBtn(btn);
+  const item = data.tomorrow.splice(i,1)[0];
+  item.done = false;
+  data.today.push(item);
+  save(); renderDay('today'); renderDay('tomorrow');
+  flashTab('tabToday');
+}
+
+function clearTomorrow(){
+  if(data.tomorrow.length && !confirm('Clear the Tomorrow list?')) return;
+  data.tomorrow = [];
+  save(); renderDay('tomorrow');
+}
+
+function sendUnfinishedToWeekly(){
+  const unfinished = data.today.filter(d=>!d.done);
+  if(!unfinished.length){ setStatus('Nothing unfinished on today’s list.'); return; }
+  if(!confirm(`Send ${unfinished.length} unfinished item(s) back to Weekly?`)) return;
+  unfinished.forEach(u=> data.weekly.push({ id: nextId(), text: u.text, sourceFreq: null }));
+  data.today = data.today.filter(d=>d.done);
+  save(); renderWeekly(); renderDay('today');
+  flashTab('tabWeekly');
 }
 
 function sendToReminders(){
-  const open = data.daily.filter(d=>!d.done);
+  const open = data.today.filter(d=>!d.done);
   const out = document.getElementById('prepOut');
   out.style.display = 'block';
   if(!open.length){
@@ -566,28 +650,54 @@ function sendToReminders(){
   }
 }
 
-function renderDaily(){
-  const el = document.getElementById('dailyList');
-  const openCount = data.daily.filter(d=>!d.done).length;
+// Display order: everything still open, in planned order, then everything
+// checked off. The underlying array keeps the planned order untouched, so
+// unchecking an item drops it back where it was.
+function displayOrder(which){
+  const arr = data[which];
+  return arr.filter(i=>!i.done).concat(arr.filter(i=>i.done));
+}
+
+function renderDay(which){
+  const el = document.getElementById(which + 'List');
   el.innerHTML = '';
-  if(!data.daily.length){
-    el.innerHTML = '<div class="empty">Pull items from this week, or add something just for tomorrow.</div>';
+  const dateEl = document.getElementById(which + 'Date');
+  if(dateEl) dateEl.textContent = stampLabel(which === 'today' ? 0 : 1);
+
+  if(!data[which].length){
+    el.innerHTML = which === 'today'
+      ? '<div class="empty">Nothing on today&rsquo;s list. Pull from Weekly, or add above.</div>'
+      : '<div class="empty">Plan tomorrow: pull from Weekly, or add above.</div>';
+    updateDayTabs();
     return;
   }
-  data.daily.forEach(item=>{
+
+  displayOrder(which).forEach(item=>{
     const row = document.createElement('div');
     row.className = 'item' + (item.done ? ' done':'');
     row.dataset.id = item.id;
-    row.dataset.group = 'all';
+    row.dataset.group = item.done ? 'done' : 'open';
     row.innerHTML = `
-      <span class="drag" onpointerdown="startDrag(event,'daily')">&#8801;</span>
-      <div class="chk ${item.done?'checked':''}" onclick="toggleDaily('${item.id}')">${item.done?'&#10003;':''}</div>
+      <span class="drag" onpointerdown="startDrag(event,'${which}')">&#8801;</span>
+      <div class="chk ${item.done?'checked':''}" onclick="toggleDay('${which}','${item.id}')">${item.done?'&#10003;':''}</div>
       <div class="item-text">${escapeHtml(item.text)}</div>
+      ${item.carried ? '<span class="tag carried">carried</span>' : ''}
       <div class="item-actions">
-        <button class="icon-btn" title="Remove" onclick="removeDaily('${item.id}')">&#10005;</button>
+        ${which === 'tomorrow' ? `<button class="icon-btn promote" title="Move to Today" onclick="moveToToday('${item.id}', this)">&#8593;</button>` : ''}
+        <button class="icon-btn" title="Remove" onclick="removeDay('${which}','${item.id}')">&#10005;</button>
       </div>`;
     el.appendChild(row);
   });
+  updateDayTabs();
+}
+
+function updateDayTabs(){
+  const open = data.today.filter(d=>!d.done).length;
+  document.getElementById('tabToday').textContent =
+    open ? `Today (${open})` : 'Today';
+  const t = data.tomorrow.length;
+  document.getElementById('tabTomorrow').textContent =
+    t ? `Tomorrow (${t})` : 'Tomorrow';
 }
 
 // ---------- SYNC ----------
@@ -659,11 +769,24 @@ function commitOrder(tier, container){
   const ids = [...container.querySelectorAll('.item')].map(el => el.dataset.id);
   const byId = {};
   data[tier].forEach(it => byId[it.id] = it);
-  data[tier] = ids.map(id => byId[id]).filter(Boolean);
+
+  if(tier === 'today' || tier === 'tomorrow'){
+    // The visible list is open-then-done, and drags are confined to one group.
+    // Splice each group's new order back into the canonical array so a checked
+    // item still remembers where it sat in the plan.
+    const rows = ids.map(id => byId[id]).filter(Boolean);
+    const openQ = rows.filter(it=>!it.done);
+    const doneQ = rows.filter(it=>it.done);
+    let oi = 0, di = 0;
+    data[tier] = data[tier].map(it => it.done ? doneQ[di++] : openQ[oi++]).filter(Boolean);
+  } else {
+    data[tier] = ids.map(id => byId[id]).filter(Boolean);
+  }
+
   save();
   if(tier === 'master') renderMaster();
   else if(tier === 'weekly') renderWeekly();
-  else renderDaily();
+  else renderDay(tier);
 }
 
 function flashBtn(btn){
@@ -686,11 +809,20 @@ function flashTab(id){
   }, 250);
 }
 
-function renderAll(){ renderMaster(); renderWeekly(); renderDaily(); }
+function renderAll(){ renderMaster(); renderWeekly(); renderDay('today'); renderDay('tomorrow'); }
 
 document.getElementById('masterInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addMaster(); });
 document.getElementById('weeklyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addWeekly(); });
-document.getElementById('dailyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addDaily(); });
+document.getElementById('todayInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addDay('today'); });
+document.getElementById('tomorrowInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addDay('tomorrow'); });
+
+// The app usually sits open on the Home Screen overnight, so re-check the
+// date whenever it comes back to the foreground.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && rollOver()){
+    save(); renderAll();
+  }
+});
 
 load();
 restoreTab();
